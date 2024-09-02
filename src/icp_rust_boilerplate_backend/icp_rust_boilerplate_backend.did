@@ -1,0 +1,80 @@
+type Book = record {
+  id : nat64;
+  title : text;
+  description : text;
+  created_at : nat64;
+  user_id : nat64;
+  author : text;
+};
+type BookPayload = record {
+  title : text;
+  description : text;
+  user_id : nat64;
+  author : text;
+};
+type Error = variant {
+  EmptyFields : record { msg : text };
+  NotFound : record { msg : text };
+  UnAuthorized : record { msg : text };
+  AlreadyExists : record { msg : text };
+  InvalidEmail : record { msg : text };
+  InvalidPhoneNumber : record { msg : text };
+};
+type Feedback = record {
+  id : nat64;
+  created_at : nat64;
+  user_id : nat64;
+  swap_request_id : nat64;
+  comment : text;
+  rating : nat8;
+};
+type FeedbackPayload = record {
+  user_id : nat64;
+  swap_request_id : nat64;
+  comment : text;
+  rating : nat8;
+};
+type Result = variant { Ok : Book; Err : text };
+type Result_1 = variant { Ok : Feedback; Err : text };
+type Result_2 = variant { Ok : SwapRequest; Err : text };
+type Result_3 = variant { Ok : User; Err : Error };
+type Result_4 = variant { Ok : vec Book; Err : Error };
+type Result_5 = variant { Ok : vec User; Err : Error };
+type Result_6 = variant { Ok : vec Book; Err : text };
+type Result_7 = variant { Ok : vec Feedback; Err : text };
+type Result_8 = variant { Ok : vec SwapRequest; Err : text };
+type Result_9 = variant { Ok : User; Err : text };
+type SwapRequest = record {
+  id : nat64;
+  status : SwapStatus;
+  requested_by_id : nat64;
+  created_at : nat64;
+  book_id : nat64;
+};
+type SwapRequestPayload = record { requested_by_id : nat64; book_id : nat64 };
+type SwapStatus = variant { Rejected; Accepted; Pending };
+type User = record {
+  id : nat64;
+  name : text;
+  created_at : nat64;
+  email : text;
+  phone_number : text;
+};
+type UserPayload = record { name : text; email : text; phone_number : text };
+service : {
+  create_book : (BookPayload) -> (Result);
+  create_feedback : (FeedbackPayload) -> (Result_1);
+  create_swap_request : (SwapRequestPayload) -> (Result_2);
+  create_user_profile : (UserPayload) -> (Result_3);
+  get_all_books : () -> (Result_4) query;
+  get_all_users : () -> (Result_5) query;
+  get_book_id : (nat64) -> (Result) query;
+  get_books_by_title : (text) -> (Result_6) query;
+  get_books_by_user_id : (nat64) -> (Result_6) query;
+  get_books_by_user_name : (text) -> (Result_6) query;
+  get_feedbacks_by_user_id : (nat64) -> (Result_7) query;
+  get_swap_request : (nat64) -> (Result_2) query;
+  get_swap_requests_by_user_id : (nat64) -> (Result_8) query;
+  get_user_profile : (nat64) -> (Result_9) query;
+  update_user_profile : (nat64, UserPayload) -> (Result_9);
+}
