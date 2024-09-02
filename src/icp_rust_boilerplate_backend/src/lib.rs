@@ -243,7 +243,8 @@ fn mint_artwork(payload: ArtworkPayload) -> Result<Artwork, Error> {
         });
     }
 
-    let artist_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artist_id));
+    let artist_exists =
+        ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artist_id));
     if !artist_exists {
         return Err(Error::NotFound {
             msg: "Artist does not exist".to_string(),
@@ -274,16 +275,31 @@ fn mint_artwork(payload: ArtworkPayload) -> Result<Artwork, Error> {
 // Mint NFT
 #[ic_cdk::update]
 fn mint_nft(payload: NFTPayload) -> Result<NFT, Error> {
-    if payload.artwork_id == 0 || payload.owner_ids.is_empty() || payload.price == 0 {
+    if payload.owner_ids.is_empty() || payload.price == 0 {
         return Err(Error::InvalidInput {
             msg: "All fields are required".to_string(),
         });
     }
 
-    let artwork_exists = ARTWORKS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artwork_id));
+    let artwork_exists =
+        ARTWORKS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artwork_id));
     if !artwork_exists {
         return Err(Error::NotFound {
             msg: "Artwork does not exist".to_string(),
+        });
+    }
+
+    // Ensure all owner ids exist
+    let owner_exists = ARTISTS_STORAGE.with(|storage| {
+        payload
+            .owner_ids
+            .iter()
+            .all(|owner_id| storage.borrow().contains_key(owner_id))
+    });
+
+    if !owner_exists {
+        return Err(Error::NotFound {
+            msg: "One or more owner ids do not exist".to_string(),
         });
     }
 
@@ -317,14 +333,16 @@ fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
         });
     }
 
-    let buyer_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.buyer_id));
+    let buyer_exists =
+        ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.buyer_id));
     if !buyer_exists {
         return Err(Error::NotFound {
             msg: "Buyer does not exist".to_string(),
         });
     }
 
-    let seller_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.seller_id));
+    let seller_exists =
+        ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.seller_id));
     if !seller_exists {
         return Err(Error::NotFound {
             msg: "Seller does not exist".to_string(),
@@ -356,8 +374,6 @@ fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
             storage.insert(payload.nft_id, nft);
         }
     });
-    
-    
 
     TRANSACTIONS_STORAGE.with(|storage| storage.borrow_mut().insert(id, transaction.clone()));
 
@@ -405,7 +421,11 @@ fn get_transaction(transaction_id: u64) -> Result<Transaction, String> {
 #[ic_cdk::query]
 fn get_all_artists() -> Result<Vec<Artist>, Error> {
     ARTISTS_STORAGE.with(|storage| {
-        let records: Vec<Artist> = storage.borrow().iter().map(|(_, artist)| artist.clone()).collect();
+        let records: Vec<Artist> = storage
+            .borrow()
+            .iter()
+            .map(|(_, artist)| artist.clone())
+            .collect();
         if records.is_empty() {
             return Err(Error::NotFound {
                 msg: "No artists found".to_string(),
@@ -418,7 +438,11 @@ fn get_all_artists() -> Result<Vec<Artist>, Error> {
 #[ic_cdk::query]
 fn get_all_artworks() -> Result<Vec<Artwork>, Error> {
     ARTWORKS_STORAGE.with(|storage| {
-        let records: Vec<Artwork> = storage.borrow().iter().map(|(_, artwork)| artwork.clone()).collect();
+        let records: Vec<Artwork> = storage
+            .borrow()
+            .iter()
+            .map(|(_, artwork)| artwork.clone())
+            .collect();
         if records.is_empty() {
             return Err(Error::NotFound {
                 msg: "No artworks found".to_string(),
@@ -431,7 +455,11 @@ fn get_all_artworks() -> Result<Vec<Artwork>, Error> {
 #[ic_cdk::query]
 fn get_all_nfts() -> Result<Vec<NFT>, Error> {
     NFTS_STORAGE.with(|storage| {
-        let records: Vec<NFT> = storage.borrow().iter().map(|(_, nft)| nft.clone()).collect();
+        let records: Vec<NFT> = storage
+            .borrow()
+            .iter()
+            .map(|(_, nft)| nft.clone())
+            .collect();
         if records.is_empty() {
             return Err(Error::NotFound {
                 msg: "No NFTs found".to_string(),
@@ -444,7 +472,11 @@ fn get_all_nfts() -> Result<Vec<NFT>, Error> {
 #[ic_cdk::query]
 fn get_all_transactions() -> Result<Vec<Transaction>, Error> {
     TRANSACTIONS_STORAGE.with(|storage| {
-        let records: Vec<Transaction> = storage.borrow().iter().map(|(_, transaction)| transaction.clone()).collect();
+        let records: Vec<Transaction> = storage
+            .borrow()
+            .iter()
+            .map(|(_, transaction)| transaction.clone())
+            .collect();
         if records.is_empty() {
             return Err(Error::NotFound {
                 msg: "No transactions found".to_string(),
