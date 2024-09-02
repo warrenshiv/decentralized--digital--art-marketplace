@@ -237,7 +237,7 @@ fn create_artist_profile(payload: ArtistPayload) -> Result<Artist, Error> {
 // Create Artwork
 #[ic_cdk::update]
 fn mint_artwork(payload: ArtworkPayload) -> Result<Artwork, Error> {
-    if payload.artist_id == 0 || payload.title.is_empty() || payload.image_url.is_empty() {
+    if payload.title.is_empty() || payload.image_url.is_empty() {
         return Err(Error::InvalidInput {
             msg: "All fields are required".to_string(),
         });
