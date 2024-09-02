@@ -11,53 +11,45 @@ use std::cell::RefCell;
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 type IdCell = Cell<u64, Memory>;
 
-// SwapStatus Enum
-#[derive(candid::CandidType, Deserialize, Serialize, Clone)]
-enum SwapStatus {
-    Pending,
-    Accepted,
-    Rejected,
-}
-
-// User Struct
+// Artist Struct
 #[derive(candid::CandidType, Serialize, Deserialize, Clone)]
-struct User {
+struct Artist {
     id: u64,
     name: String,
-    phone_number: String,
+    wallet_address: String,
     email: String,
     created_at: u64,
 }
 
-// Book Struct
+// Artwork Struct
 #[derive(candid::CandidType, Serialize, Deserialize, Clone)]
-struct Book {
+struct Artwork {
     id: u64,
-    user_id: u64,
+    artist_id: u64,
     title: String,
-    author: String,
     description: String,
+    image_url: String,
     created_at: u64,
 }
 
-// SwapRequest Struct
+// NFT Struct
 #[derive(candid::CandidType, Serialize, Deserialize, Clone)]
-struct SwapRequest {
+struct NFT {
     id: u64,
-    book_id: u64,
-    requested_by_id: u64,
-    status: SwapStatus,
+    artwork_id: u64,
+    owner_ids: Vec<u64>, // Allow multiple owners for fractional ownership
+    price: u64,
     created_at: u64,
 }
 
-// Feedback Struct
+// Transaction Struct
 #[derive(candid::CandidType, Serialize, Deserialize, Clone)]
-struct Feedback {
+struct Transaction {
     id: u64,
-    user_id: u64,
-    swap_request_id: u64,
-    rating: u8,
-    comment: String,
+    nft_id: u64,
+    buyer_id: u64,
+    seller_id: u64,
+    price: u64,
     created_at: u64,
 }
 
@@ -71,24 +63,24 @@ thread_local! {
             .expect("Cannot create a counter")
     );
 
-    static USERS_STORAGE: RefCell<StableBTreeMap<u64, User, Memory>> = RefCell::new(
+    static ARTISTS_STORAGE: RefCell<StableBTreeMap<u64, Artist, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
     );
 
-    static BOOKS_STORAGE: RefCell<StableBTreeMap<u64, Book, Memory>> = RefCell::new(
+    static ARTWORKS_STORAGE: RefCell<StableBTreeMap<u64, Artwork, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
     );
 
-    static SWAP_REQUESTS_STORAGE: RefCell<StableBTreeMap<u64, SwapRequest, Memory>> = RefCell::new(
+    static NFTS_STORAGE: RefCell<StableBTreeMap<u64, NFT, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
 
-    static FEEDBACK_STORAGE: RefCell<StableBTreeMap<u64, Feedback, Memory>> = RefCell::new(
+    static TRANSACTIONS_STORAGE: RefCell<StableBTreeMap<u64, Transaction, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
 }
 
-impl Storable for User {
+impl Storable for Artist {
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -98,12 +90,12 @@ impl Storable for User {
     }
 }
 
-impl BoundedStorable for User {
+impl BoundedStorable for Artist {
     const MAX_SIZE: u32 = 1024;
     const IS_FIXED_SIZE: bool = false;
 }
 
-impl Storable for Book {
+impl Storable for Artwork {
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -113,12 +105,12 @@ impl Storable for Book {
     }
 }
 
-impl BoundedStorable for Book {
+impl BoundedStorable for Artwork {
     const MAX_SIZE: u32 = 2048;
     const IS_FIXED_SIZE: bool = false;
 }
 
-impl Storable for SwapRequest {
+impl Storable for NFT {
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -128,12 +120,12 @@ impl Storable for SwapRequest {
     }
 }
 
-impl BoundedStorable for SwapRequest {
-    const MAX_SIZE: u32 = 1024;
+impl BoundedStorable for NFT {
+    const MAX_SIZE: u32 = 2048;
     const IS_FIXED_SIZE: bool = false;
 }
 
-impl Storable for Feedback {
+impl Storable for Transaction {
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -143,72 +135,77 @@ impl Storable for Feedback {
     }
 }
 
-impl BoundedStorable for Feedback {
+impl BoundedStorable for Transaction {
     const MAX_SIZE: u32 = 1024;
     const IS_FIXED_SIZE: bool = false;
 }
 
 // Payloads Definitions
 
-// User Payload
 #[derive(candid::CandidType, Deserialize, Serialize)]
-struct UserPayload {
+struct ArtistPayload {
     name: String,
-    phone_number: String,
+    wallet_address: String,
     email: String,
 }
 
-// Book Payload
 #[derive(candid::CandidType, Deserialize, Serialize)]
-struct BookPayload {
-    user_id: u64,
+struct ArtworkPayload {
+    artist_id: u64,
     title: String,
-    author: String,
     description: String,
+    image_url: String,
 }
 
-// SwapRequest Payload
 #[derive(candid::CandidType, Deserialize, Serialize)]
-struct SwapRequestPayload {
-    book_id: u64,
-    requested_by_id: u64,
+struct NFTPayload {
+    artwork_id: u64,
+    owner_ids: Vec<u64>,
+    price: u64,
 }
 
-// Feedback Payload
 #[derive(candid::CandidType, Deserialize, Serialize)]
-struct FeedbackPayload {
-    user_id: u64,
-    swap_request_id: u64,
-    rating: u8,
-    comment: String,
+struct TransactionPayload {
+    nft_id: u64,
+    buyer_id: u64,
+    seller_id: u64,
+    price: u64,
+}
+
+// Error types
+#[derive(candid::CandidType, Deserialize, Serialize)]
+enum Error {
+    NotFound { msg: String },
+    InvalidInput { msg: String },
+    AlreadyExists { msg: String },
+    Unauthorized { msg: String },
 }
 
 // Functions
 
+// Create Artist Profile
 #[ic_cdk::update]
-fn create_user_profile(payload: UserPayload) -> Result<User, Error> {
-    // Validate the payload to ensure that the required fields are present
-    if payload.name.is_empty() || payload.phone_number.is_empty() || payload.email.is_empty() {
-        return Err(Error::EmptyFields {
+fn create_artist_profile(payload: ArtistPayload) -> Result<Artist, Error> {
+    if payload.name.is_empty() || payload.wallet_address.is_empty() || payload.email.is_empty() {
+        return Err(Error::InvalidInput {
             msg: "All fields are required".to_string(),
         });
     }
 
-    // Validate the payload to ensure that the email format is correct
     // Validate the email address
     let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
     if !email_regex.is_match(&payload.email) {
-        return Err(Error::InvalidEmail {
+        return Err(Error::InvalidInput {
             msg: "Ensure the email address is of the correct format".to_string(),
         });
     }
 
     // Ensure email address uniqueness
-    let email_exists = USERS_STORAGE.with(|storage| {
+    let email_exists = ARTISTS_STORAGE.with(|storage| {
         storage
             .borrow()
             .iter()
-            .any(|(_, user)| user.email == payload.email)
+            .any(|(_, artist)| artist.email == payload.email)
     });
 
     if email_exists {
@@ -217,15 +214,6 @@ fn create_user_profile(payload: UserPayload) -> Result<User, Error> {
         });
     }
 
-    // Validate the payload to ensure that the phone number format is correct and is 10 digits
-    let phone_number_regex = Regex::new(r"^[0-9]{10}$").unwrap();
-    if !phone_number_regex.is_match(&payload.phone_number) {
-        return Err(Error::InvalidPhoneNumber {
-            msg: "Ensure the phone number is of the correct format".to_string(),
-        });
-    }
-
-    // Generate a new unique ID for the user
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
@@ -233,129 +221,35 @@ fn create_user_profile(payload: UserPayload) -> Result<User, Error> {
         })
         .expect("Cannot increment ID counter");
 
-    // Create the user profile
-    let user_profile = User {
+    let artist = Artist {
         id,
         name: payload.name,
-        phone_number: payload.phone_number,
+        wallet_address: payload.wallet_address,
         email: payload.email,
         created_at: time(),
     };
 
-    // Store the new user profile in the USERS_STORAGE
-    USERS_STORAGE.with(|storage| storage.borrow_mut().insert(id, user_profile.clone()));
+    ARTISTS_STORAGE.with(|storage| storage.borrow_mut().insert(id, artist.clone()));
 
-    Ok(user_profile)
+    Ok(artist)
 }
 
-// Function to get a user profile
-#[ic_cdk::query]
-fn get_user_profile(user_id: u64) -> Result<User, String> {
-    // Ensure that the user exists
-    let user = USERS_STORAGE.with(|storage| storage.borrow().get(&user_id));
-    match user {
-        Some(user) => Ok(user.clone()),
-        None => Err("User does not exist".to_string()),
-    }
-}
-
-// Function to update a user profile
+// Create Artwork
 #[ic_cdk::update]
-fn update_user_profile(user_id: u64, payload: UserPayload) -> Result<User, String> {
-    // Ensure that the user exists
-    let user = USERS_STORAGE.with(|storage| storage.borrow().get(&user_id));
-    match user {
-        Some(user) => {
-            // Validate the payload to ensure that the required fields are present
-            if payload.name.is_empty() || payload.phone_number.is_empty() || payload.email.is_empty() {
-                return Err("All fields are required".to_string());
-            }
-
-            // Validate the user id to ensure it exists
-            if user_id != user.id {
-                return Err("User does not exist".to_string());
-            }
-            
-            // Validate the payload to ensure that the email format is correct
-            let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-            if !email_regex.is_match(&payload.email) {
-                return Err("Ensure the email address is of the correct format".to_string());
-            }
-
-            // Ensure email address uniqueness
-            let email_exists = USERS_STORAGE.with(|storage| {
-                storage
-                    .borrow()
-                    .iter()
-                    .any(|(_, user)| user.email == payload.email)
-            });
-
-            if email_exists {
-                return Err("Email already exists".to_string());
-            }
-
-            // Validate the payload to ensure that the phone number format is correct and is 10 digits
-            let phone_number_regex = Regex::new(r"^[0-9]{10}$").unwrap();
-            if !phone_number_regex.is_match(&payload.phone_number) {
-                return Err("Ensure the phone number is of the correct format".to_string());
-            }
-
-            // Update the user profile
-            let updated_user = User {
-                id: user.id,
-                name: payload.name,
-                phone_number: payload.phone_number,
-                email: payload.email,
-                created_at: user.created_at,
-            };
-
-            // Store the updated user profile in the USERS_STORAGE
-            USERS_STORAGE.with(|storage| storage.borrow_mut().insert(user_id, updated_user.clone()));
-
-            Ok(updated_user)
-        }
-        None => Err("User does not exist".to_string()),
-    }
-}
-
-// Function to retrieve all users
-#[ic_cdk::query]
-fn get_all_users() -> Result<Vec<User>, Error> {
-    USERS_STORAGE.with(|storage| {
-         let stable_btree_map  = &*storage.borrow();
-        
-        let records: Vec<User> = stable_btree_map
-            .iter()
-            .map(|(_, user)| user.clone())
-            .collect();
-        
-        if records.is_empty() {
-            return Err(Error::NotFound {
-                msg: "No users found".to_string(),
-            });
-        }
-        
-        else {
-            Ok(records)
-        }
-    })
-}
-
-// Function to create a book
-#[ic_cdk::update]
-fn create_book(payload: BookPayload) -> Result<Book, String> {
-    // Validate the payload to ensure that the required fields are present
-    if payload.user_id == 0 || payload.title.is_empty() || payload.author.is_empty() {
-        return Err("All fields are required".to_string());
+fn mint_artwork(payload: ArtworkPayload) -> Result<Artwork, Error> {
+    if payload.artist_id == 0 || payload.title.is_empty() || payload.image_url.is_empty() {
+        return Err(Error::InvalidInput {
+            msg: "All fields are required".to_string(),
+        });
     }
 
-    // Ensure that the user exists
-    let user_exists = USERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.user_id));
-    if !user_exists {
-        return Err("User does not exist".to_string());
+    let artist_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artist_id));
+    if !artist_exists {
+        return Err(Error::NotFound {
+            msg: "Artist does not exist".to_string(),
+        });
     }
 
-    // Generate a new unique ID for the book
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
@@ -363,255 +257,199 @@ fn create_book(payload: BookPayload) -> Result<Book, String> {
         })
         .expect("Cannot increment ID counter");
 
-    // Create the book
-    let book = Book {
+    let artwork = Artwork {
         id,
-        user_id: payload.user_id,
+        artist_id: payload.artist_id,
         title: payload.title,
-        author: payload.author,
         description: payload.description,
+        image_url: payload.image_url,
         created_at: time(),
     };
 
-    // Store the new book in the BOOKS_STORAGE
-    BOOKS_STORAGE.with(|storage| storage.borrow_mut().insert(id, book.clone()));
+    ARTWORKS_STORAGE.with(|storage| storage.borrow_mut().insert(id, artwork.clone()));
 
-    Ok(book)
+    Ok(artwork)
 }
 
-// Function to get a book by id
+// Mint NFT
+#[ic_cdk::update]
+fn mint_nft(payload: NFTPayload) -> Result<NFT, Error> {
+    if payload.artwork_id == 0 || payload.owner_ids.is_empty() || payload.price == 0 {
+        return Err(Error::InvalidInput {
+            msg: "All fields are required".to_string(),
+        });
+    }
+
+    let artwork_exists = ARTWORKS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.artwork_id));
+    if !artwork_exists {
+        return Err(Error::NotFound {
+            msg: "Artwork does not exist".to_string(),
+        });
+    }
+
+    let id = ID_COUNTER
+        .with(|counter| {
+            let current_value = *counter.borrow().get();
+            counter.borrow_mut().set(current_value + 1)
+        })
+        .expect("Cannot increment ID counter");
+
+    let nft = NFT {
+        id,
+        artwork_id: payload.artwork_id,
+        owner_ids: payload.owner_ids,
+        price: payload.price,
+        created_at: time(),
+    };
+
+    NFTS_STORAGE.with(|storage| storage.borrow_mut().insert(id, nft.clone()));
+
+    Ok(nft)
+}
+
+// Buy NFT
+#[ic_cdk::update]
+fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
+    let nft_exists = NFTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.nft_id));
+    if !nft_exists {
+        return Err(Error::NotFound {
+            msg: "NFT does not exist".to_string(),
+        });
+    }
+
+    let buyer_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.buyer_id));
+    if !buyer_exists {
+        return Err(Error::NotFound {
+            msg: "Buyer does not exist".to_string(),
+        });
+    }
+
+    let seller_exists = ARTISTS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.seller_id));
+    if !seller_exists {
+        return Err(Error::NotFound {
+            msg: "Seller does not exist".to_string(),
+        });
+    }
+
+    let id = ID_COUNTER
+        .with(|counter| {
+            let current_value = *counter.borrow().get();
+            counter.borrow_mut().set(current_value + 1)
+        })
+        .expect("Cannot increment ID counter");
+
+    let transaction = Transaction {
+        id,
+        nft_id: payload.nft_id,
+        buyer_id: payload.buyer_id,
+        seller_id: payload.seller_id,
+        price: payload.price,
+        created_at: time(),
+    };
+
+    // Update NFT owner
+    NFTS_STORAGE.with(|storage| {
+        let mut storage = storage.borrow_mut();
+        if let Some(mut nft) = storage.get(&payload.nft_id).cloned() {
+            nft.owner_ids.push(payload.buyer_id);
+            storage.insert(payload.nft_id, nft);
+        }
+    });
+    
+
+    TRANSACTIONS_STORAGE.with(|storage| storage.borrow_mut().insert(id, transaction.clone()));
+
+    Ok(transaction)
+}
+
+// Query Functions
+
 #[ic_cdk::query]
-fn get_book_id(book_id: u64) -> Result<Book, String> {
-    // Ensure that the book exists
-    let book = BOOKS_STORAGE.with(|storage| storage.borrow().get(&book_id));
-    match book {
-        Some(book) => Ok(book.clone()),
-        None => Err("Book does not exist".to_string()),
+fn get_artist(artist_id: u64) -> Result<Artist, String> {
+    let artist = ARTISTS_STORAGE.with(|storage| storage.borrow().get(&artist_id));
+    match artist {
+        Some(artist) => Ok(artist.clone()),
+        None => Err("Artist does not exist".to_string()),
     }
 }
 
-// Function to Fetch book by user id
 #[ic_cdk::query]
-fn get_books_by_user_id(user_id: u64) -> Result<Vec<Book>, String> {
-    let books = BOOKS_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<Book> = stable_btree_map
-            .iter()
-            .filter(|(_, book)| book.user_id == user_id)
-            .map(|(_, book)| book.clone())
-            .collect();
-        if records.is_empty() {
-            return Err("No books found".to_string());
-        }
-        Ok(records)
-    })?;
-    Ok(books)
+fn get_artwork(artwork_id: u64) -> Result<Artwork, String> {
+    let artwork = ARTWORKS_STORAGE.with(|storage| storage.borrow().get(&artwork_id));
+    match artwork {
+        Some(artwork) => Ok(artwork.clone()),
+        None => Err("Artwork does not exist".to_string()),
+    }
 }
 
-// Function to fetch books by user name
 #[ic_cdk::query]
-fn get_books_by_user_name(name: String) -> Result<Vec<Book>, String> {
-    let books = BOOKS_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<Book> = stable_btree_map
-            .iter()
-            .filter(|(_, book)| {
-                let user = USERS_STORAGE.with(|storage| storage.borrow().get(&book.user_id));
-                match user {
-                    Some(user) => user.name == name,
-                    None => false,
-                }
-            })
-            .map(|(_, book)| book.clone())
-            .collect();
-        if records.is_empty() {
-            return Err("No books found for the specified user name".to_string());
-        }
-        Ok(records)
-    })?;
-    Ok(books)
+fn get_nft(nft_id: u64) -> Result<NFT, String> {
+    let nft = NFTS_STORAGE.with(|storage| storage.borrow().get(&nft_id));
+    match nft {
+        Some(nft) => Ok(nft.clone()),
+        None => Err("NFT does not exist".to_string()),
+    }
 }
 
-// Function to fetch books by book title
 #[ic_cdk::query]
-fn get_books_by_title(title: String) -> Result<Vec<Book>, String> {
-    let books = BOOKS_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<Book> = stable_btree_map
-            .iter()
-            .filter(|(_, book)| book.title == title)
-            .map(|(_, book)| book.clone())
-            .collect();
-        if records.is_empty() {
-            return Err("No books found".to_string());
-        }
-        Ok(records)
-    })?;
-    Ok(books)
+fn get_transaction(transaction_id: u64) -> Result<Transaction, String> {
+    let transaction = TRANSACTIONS_STORAGE.with(|storage| storage.borrow().get(&transaction_id));
+    match transaction {
+        Some(transaction) => Ok(transaction.clone()),
+        None => Err("Transaction does not exist".to_string()),
+    }
 }
 
-// Function to retrieve all books
 #[ic_cdk::query]
-fn get_all_books() -> Result<Vec<Book>, Error> {
-    BOOKS_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<Book> = stable_btree_map
-            .iter()
-            .map(|(_, book)| book.clone())
-            .collect();
+fn get_all_artists() -> Result<Vec<Artist>, Error> {
+    ARTISTS_STORAGE.with(|storage| {
+        let records: Vec<Artist> = storage.borrow().iter().map(|(_, artist)| artist.clone()).collect();
         if records.is_empty() {
             return Err(Error::NotFound {
-                msg: "No books found".to_string(),
+                msg: "No artists found".to_string(),
             });
         }
         Ok(records)
     })
 }
 
-// Function to create a swap request
-#[ic_cdk::update]
-fn create_swap_request(payload: SwapRequestPayload) -> Result<SwapRequest, String> {
-    // Validate the payload to ensure that the required fields are present
-    if payload.book_id == 0 || payload.requested_by_id == 0 {
-        return Err("All fields are required".to_string());
-    }
-
-    // Ensure that the book exists
-    let book_exists = BOOKS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.book_id));
-    if !book_exists {
-        return Err("Book does not exist".to_string());
-    }
-
-    // Ensure that the user exists
-    let user_exists =
-        USERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.requested_by_id));
-    if !user_exists {
-        return Err("User does not exist".to_string());
-    }
-
-    // Generate a new unique ID for the swap request
-    let id = ID_COUNTER
-        .with(|counter| {
-            let current_value = *counter.borrow().get();
-            counter.borrow_mut().set(current_value + 1)
-        })
-        .expect("Cannot increment ID counter");
-
-    // Create the swap request and initialize the status to pending
-    let swap_request = SwapRequest {
-        id,
-        book_id: payload.book_id,
-        requested_by_id: payload.requested_by_id,
-        status: SwapStatus::Pending,
-        created_at: time(),
-    };
-
-    // Store the new swap request in the SWAP_REQUESTS_STORAGE
-    SWAP_REQUESTS_STORAGE.with(|storage| storage.borrow_mut().insert(id, swap_request.clone()));
-
-    Ok(swap_request)
-}
-
-// Fetch to get swap requests
 #[ic_cdk::query]
-fn get_swap_requests(swap_request_id: u64) -> Result<SwapRequest, String> {
-    // Ensure that the swap request exists
-    let swap_request = SWAP_REQUESTS_STORAGE.with(|storage| storage.borrow().get(&swap_request_id));
-    match swap_request {
-        Some(swap_request) => Ok(swap_request.clone()),
-        None => Err("Swap request does not exist".to_string()),
-    }
-}
-
-// Function to fetch swap requests by user id
-#[ic_cdk::query]
-fn get_swap_requests_by_user_id(user_id: u64) -> Result<Vec<SwapRequest>, String> {
-    let swap_requests = SWAP_REQUESTS_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<SwapRequest> = stable_btree_map
-            .iter()
-            .filter(|(_, swap_request)| swap_request.requested_by_id == user_id)
-            .map(|(_, swap_request)| swap_request.clone())
-            .collect();
+fn get_all_artworks() -> Result<Vec<Artwork>, Error> {
+    ARTWORKS_STORAGE.with(|storage| {
+        let records: Vec<Artwork> = storage.borrow().iter().map(|(_, artwork)| artwork.clone()).collect();
         if records.is_empty() {
-            return Err("No swap requests found".to_string());
+            return Err(Error::NotFound {
+                msg: "No artworks found".to_string(),
+            });
         }
         Ok(records)
-    })?;
-    Ok(swap_requests)
+    })
 }
 
-#[ic_cdk::update]
-fn create_feedback(payload: FeedbackPayload) -> Result<Feedback, String> {
-    // Validate the payload to ensure that the required fields are present
-    if payload.user_id == 0 || payload.swap_request_id == 0 || payload.rating == 0 {
-        return Err("All fields are required".to_string());
-    }
-
-    // Ensure that the user exists
-    let user_exists = USERS_STORAGE.with(|storage| storage.borrow().contains_key(&payload.user_id));
-    if !user_exists {
-        return Err("User does not exist".to_string());
-    }
-
-    // Ensure that the swap request exists
-    let swap_request_exists = SWAP_REQUESTS_STORAGE
-        .with(|storage| storage.borrow().contains_key(&payload.swap_request_id));
-    if !swap_request_exists {
-        return Err("Swap request does not exist".to_string());
-    }
-
-    // Generate a new unique ID for the feedback
-    let id = ID_COUNTER
-        .with(|counter| {
-            let current_value = *counter.borrow().get();
-            counter.borrow_mut().set(current_value + 1)
-        })
-        .expect("Cannot increment ID counter");
-
-    // Create the feedback
-    let feedback = Feedback {
-        id,
-        user_id: payload.user_id,
-        swap_request_id: payload.swap_request_id,
-        rating: payload.rating,
-        comment: payload.comment,
-        created_at: time(),
-    };
-
-    // Store the new feedback in the FEEDBACK_STORAGE
-    FEEDBACK_STORAGE.with(|storage| storage.borrow_mut().insert(id, feedback.clone()));
-    
-    Ok(feedback)
-}
-
-// Function to fetch feedbacks for a specific user
 #[ic_cdk::query]
-fn get_feedbacks_by_user_id(user_id: u64) -> Result<Vec<Feedback>, String> {
-    let feedbacks = FEEDBACK_STORAGE.with(|storage| {
-        let stable_btree_map = &*storage.borrow();
-        let records: Vec<Feedback> = stable_btree_map
-            .iter()
-            .filter(|(_, feedback)| feedback.user_id == user_id)
-            .map(|(_, feedback)| feedback.clone())
-            .collect();
+fn get_all_nfts() -> Result<Vec<NFT>, Error> {
+    NFTS_STORAGE.with(|storage| {
+        let records: Vec<NFT> = storage.borrow().iter().map(|(_, nft)| nft.clone()).collect();
         if records.is_empty() {
-            return Err("No feedbacks found".to_string());
+            return Err(Error::NotFound {
+                msg: "No NFTs found".to_string(),
+            });
         }
         Ok(records)
-    })?;
-    Ok(feedbacks)
+    })
 }
 
-// Error types
-#[derive(candid::CandidType, Deserialize, Serialize)]
-enum Error {
-    NotFound { msg: String },
-    UnAuthorized { msg: String },
-    InvalidEmail { msg: String },
-    AlreadyExists { msg: String },
-    InvalidPhoneNumber { msg: String },
-    EmptyFields { msg: String },
+#[ic_cdk::query]
+fn get_all_transactions() -> Result<Vec<Transaction>, Error> {
+    TRANSACTIONS_STORAGE.with(|storage| {
+        let records: Vec<Transaction> = storage.borrow().iter().map(|(_, transaction)| transaction.clone()).collect();
+        if records.is_empty() {
+            return Err(Error::NotFound {
+                msg: "No transactions found".to_string(),
+            });
+        }
+        Ok(records)
+    })
 }
 
 // need this to generate candid
