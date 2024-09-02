@@ -39,6 +39,7 @@ struct NFT {
     artwork_id: u64,
     owner_ids: Vec<u64>, // Allow multiple owners for fractional ownership
     price: u64,
+    status: String, // Pending, Completed, Cancelled
     created_at: u64,
 }
 
@@ -315,6 +316,7 @@ fn mint_nft(payload: NFTPayload) -> Result<NFT, Error> {
         artwork_id: payload.artwork_id,
         owner_ids: payload.owner_ids,
         price: payload.price,
+        status: "Pending".to_string(),
         created_at: time(),
     };
 
@@ -349,6 +351,37 @@ fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
         });
     }
 
+    // Ensure the buyer is not the seller
+    if payload.buyer_id == payload.seller_id {
+        return Err(Error::InvalidInput {
+            msg: "Buyer and seller cannot be the same".to_string(),
+        });
+    }
+
+    // Ensure the price is same as the NFT price
+    let nft_price = NFTS_STORAGE.with(|storage| {
+        let nft = storage.borrow().get(&payload.nft_id).unwrap();
+        nft.price
+    });
+
+    if nft_price != payload.price {
+        return Err(Error::InvalidInput {
+            msg: "Price does not match the NFT price".to_string(),
+        });
+    }
+
+    // Ensure the status of the NFT is Pending
+    let nft_status = NFTS_STORAGE.with(|storage| {
+        let nft = storage.borrow().get(&payload.nft_id).unwrap();
+        nft.status.clone()
+    });
+
+    if nft_status != "Pending" {
+        return Err(Error::InvalidInput {
+            msg: "NFT is not available for sale".to_string(),
+        });
+    }
+
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
@@ -371,6 +404,16 @@ fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
         if let Some(nft) = storage.get(&payload.nft_id) {
             let mut nft = nft.clone();
             nft.owner_ids.push(payload.buyer_id);
+            storage.insert(payload.nft_id, nft);
+        }
+    });
+
+    // Update NFT status
+    NFTS_STORAGE.with(|storage| {
+        let mut storage = storage.borrow_mut();
+        if let Some(nft) = storage.get(&payload.nft_id) {
+            let mut nft = nft.clone();
+            nft.status = "Completed".to_string();
             storage.insert(payload.nft_id, nft);
         }
     });
