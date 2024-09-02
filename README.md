@@ -1,33 +1,257 @@
-# Book Swap Platform
 
-This project is a decentralized platform built on the Internet Computer, aiming to facilitate the exchange of books among users. It leverages the power of the blockchain to ensure transparency and reliability in the swapping process.
+# Art Marketplace Smart Contract
 
-## Key Features
+## Overview
 
-1. **User Management**
-   - **Create User Profile:** Allows the creation of new user profiles with validation for input fields.
-   - **Get User Profile:** Retrieves the profile of a user by their unique ID.
-   - **Update User Profile:** Updates the existing user profile with new information.
-   - **Get All Users:** Retrieves all registered user profiles.
+This project is a smart contract for an art marketplace implemented using the Internet Computer (IC) framework. It allows for creating artist profiles, minting artworks, minting NFTs, and handling transactions. The contract also includes query functions to retrieve information about artists, artworks, NFTs, and transactions.
 
-2. **Book Management**
-   - **Create Book:** Allows a user to register a new book for swapping.
-   - **Get Book:** Retrieves the details of a specific book by its ID.
-   - **Get Books by User ID:** Lists all books registered by a specific user.
-   - **Get Books by Title:** Retrieves books filtered by their title.
+## Structures
 
-3. **Swap Management**
-   - **Create Swap Request:** Initiates a swap request for a book.
-   - **Get Swap Requests by User ID:** Retrieves all swap requests initiated by a specific user.
-   - **Get Swap Request Details:** Provides details of a specific swap request.
+### Artist
 
-4. **Feedback Management**
-   - **Create Feedback:** Allows users to leave feedback on a completed swap.
-   - **Get Feedbacks by User ID:** Retrieves all feedback associated with a specific user.
+```rust
+#[derive(candid::CandidType, Serialize, Deserialize, Clone)]
+struct Artist {
+    id: u64,
+    name: String,
+    wallet_address: String,
+    email: String,
+    created_at: u64,
+}
+```
 
-5. **Error Handling**
-   - **Not Found:** Returns an error if a requested resource (user, book, swap request) is not found.
-   - **Invalid Input:** Handles errors related to invalid email, phone number, or missing required fields.
+### Artwork
+
+```rust
+#[derive(candid::CandidType, Serialize, Deserialize, Clone)]
+struct Artwork {
+    id: u64,
+    artist_id: u64,
+    title: String,
+    description: String,
+    image_url: String,
+    created_at: u64,
+}
+```
+
+### NFT
+
+```rust
+#[derive(candid::CandidType, Serialize, Deserialize, Clone)]
+struct NFT {
+    id: u64,
+    artwork_id: u64,
+    owner_ids: Vec<u64>, // Allow multiple owners for fractional ownership
+    price: u64,
+    created_at: u64,
+}
+```
+
+### Transaction
+
+```rust
+#[derive(candid::CandidType, Serialize, Deserialize, Clone)]
+struct Transaction {
+    id: u64,
+    nft_id: u64,
+    buyer_id: u64,
+    seller_id: u64,
+    price: u64,
+    created_at: u64,
+}
+```
+
+## Payload Definitions
+
+### ArtistPayload
+
+```rust
+#[derive(candid::CandidType, Deserialize, Serialize)]
+struct ArtistPayload {
+    name: String,
+    wallet_address: String,
+    email: String,
+}
+```
+
+**Sample Request**
+
+```json
+{
+    "name": "John Doe",
+    "wallet_address": "0x1234567890abcdef",
+    "email": "johndoe@example.com"
+}
+```
+
+### ArtworkPayload
+
+```rust
+#[derive(candid::CandidType, Deserialize, Serialize)]
+struct ArtworkPayload {
+    artist_id: u64,
+    title: String,
+    description: String,
+    image_url: String,
+}
+```
+
+**Sample Request**
+
+```json
+{
+    "artist_id": 1,
+    "title": "Sunset Over Mountains",
+    "description": "A beautiful sunset over the mountains.",
+    "image_url": "https://example.com/sunset.jpg"
+}
+```
+
+### NFTPayload
+
+```rust
+#[derive(candid::CandidType, Deserialize, Serialize)]
+struct NFTPayload {
+    artwork_id: u64,
+    owner_ids: Vec<u64>,
+    price: u64,
+}
+```
+
+**Sample Request**
+
+```json
+{
+    "artwork_id": 1,
+    "owner_ids": [1, 2],
+    "price": 1000
+}
+```
+
+### TransactionPayload
+
+```rust
+#[derive(candid::CandidType, Deserialize, Serialize)]
+struct TransactionPayload {
+    nft_id: u64,
+    buyer_id: u64,
+    seller_id: u64,
+    price: u64,
+}
+```
+
+**Sample Request**
+
+```json
+{
+    "nft_id": 1,
+    "buyer_id": 2,
+    "seller_id": 1,
+    "price": 1000
+}
+```
+
+## Functions
+
+### Create Artist Profile
+
+```rust
+#[ic_cdk::update]
+fn create_artist_profile(payload: ArtistPayload) -> Result<Artist, Error> { ... }
+```
+
+### Create Artwork
+
+```rust
+#[ic_cdk::update]
+fn mint_artwork(payload: ArtworkPayload) -> Result<Artwork, Error> { ... }
+```
+
+### Mint NFT
+
+```rust
+#[ic_cdk::update]
+fn mint_nft(payload: NFTPayload) -> Result<NFT, Error> { ... }
+```
+
+### Buy NFT
+
+```rust
+#[ic_cdk::update]
+fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> { ... }
+```
+
+## Query Functions
+
+### Get Artist
+
+```rust
+#[ic_cdk::query]
+fn get_artist(artist_id: u64) -> Result<Artist, String> { ... }
+```
+
+### Get Artwork
+
+```rust
+#[ic_cdk::query]
+fn get_artwork(artwork_id: u64) -> Result<Artwork, String> { ... }
+```
+
+### Get NFT
+
+```rust
+#[ic_cdk::query]
+fn get_nft(nft_id: u64) -> Result<NFT, String> { ... }
+```
+
+### Get Transaction
+
+```rust
+#[ic_cdk::query]
+fn get_transaction(transaction_id: u64) -> Result<Transaction, String> { ... }
+```
+
+### Get All Artists
+
+```rust
+#[ic_cdk::query]
+fn get_all_artists() -> Result<Vec<Artist>, Error> { ... }
+```
+
+### Get All Artworks
+
+```rust
+#[ic_cdk::query]
+fn get_all_artworks() -> Result<Vec<Artwork>, Error> { ... }
+```
+
+### Get All NFTs
+
+```rust
+#[ic_cdk::query]
+fn get_all_nfts() -> Result<Vec<NFT>, Error> { ... }
+```
+
+### Get All Transactions
+
+```rust
+#[ic_cdk::query]
+fn get_all_transactions() -> Result<Vec<Transaction>, Error> { ... }
+```
+
+## Error Handling
+
+The contract defines the following errors:
+
+```rust
+#[derive(candid::CandidType, Deserialize, Serialize)]
+enum Error {
+    NotFound { msg: String },
+    InvalidInput { msg: String },
+    AlreadyExists { msg: String },
+    Unauthorized { msg: String },
+}
+```
 
 
 ## Requirements
