@@ -350,11 +350,13 @@ fn buy_nft(payload: TransactionPayload) -> Result<Transaction, Error> {
     // Update NFT owner
     NFTS_STORAGE.with(|storage| {
         let mut storage = storage.borrow_mut();
-        if let Some(mut nft) = storage.get(&payload.nft_id).cloned() {
+        if let Some(nft) = storage.get(&payload.nft_id) {
+            let mut nft = nft.clone();
             nft.owner_ids.push(payload.buyer_id);
             storage.insert(payload.nft_id, nft);
         }
     });
+    
     
 
     TRANSACTIONS_STORAGE.with(|storage| storage.borrow_mut().insert(id, transaction.clone()));
